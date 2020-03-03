@@ -1,0 +1,234 @@
+﻿<!doctype>
+<html>
+<head>
+<title>TimeMaths : A Time Calculator</title>
+<meta charset="UTF-8">
+<link rel="stylesheet" href="tiny.css" type="text/css">
+ <meta name="viewport" content="width=device-width, initial-scale=1">
+<script type="text/javascript" src="timemaths.js"></script>
+<style media="all" type="text/css">
+.arttext{
+	white-space:pre-line;
+	padding:0.3rem 2rem;
+}
+.artnumber{
+	font-weight:bold;
+	display:inline;
+}
+.timetable{
+text-align:center;
+}
+.timetable tr:first-of-type{
+font-family:monospace;
+font-weight:bold;
+font-size:x-large;
+}
+.timetable tr:last-of-type{
+
+font-size:xx-small;
+}
+.calculator-row-table{
+padding:0;
+width:100%;
+border-collapse:collapse;
+border:0;
+}
+.calculator-row{
+margin:0px;
+width:100%;
+padding:0;
+}
+.calculator-row td{
+	margin:0;
+	text-align:center;
+	font-weight:bold;
+	width:calc(100% / 4);
+	align-self:center;
+	padding:5px;
+}
+.calculator-button{
+width:calc(100% - 10px);
+border:none !important;
+background-color:lightgray !important;
+font-weight:bold;
+}
+
+.calculator-button.calculator-focus{
+background-color:highlight !important;
+color:white !important;
+}
+#help-container{
+padding:15px;
+border-radius:5px;
+font-size:smaller;
+}
+#main-container:not(:empty) ~ #help-container{
+display:none;
+}
+code{
+margin:auto 3px;
+padding:3px 5px;
+background:gray;
+color:#eee;
+border-radius:2px;
+}
+#main{
+padding-bottom:10px;
+}
+#pages{
+background:white;
+padding:4px;
+display:flex;
+flex-wrap:wrap;
+}
+#pages a.active{
+color:black;
+pointer-events:none;
+}
+#pages:not(:empty)::before{
+content:"Pages : "
+}
+#pages a{
+padding:0 5px;
+}
+.position{
+font-size:smaller;
+padding: 4px 0px;
+}
+#search-container{
+background:#fff;
+padding:1px 0;
+padding-left:25px;
+margin-left:-25px;
+}
+.historical{
+font-size:smaller;
+border-top:1px solid #ccc;
+padding: 4px 0px;
+}
+.article{
+padding: 5px;
+text-align:justify;
+margin:12px 0px;
+padding-left:10px;
+margin-left:-10px;
+border-left:5px solid lightgray;
+border-right:5px solid transparent;
+}
+.article:focus{
+outline:0;
+border-left:5px solid red;
+}
+.hidden{display:none;}
+#info-download{
+float:right;
+}
+.calculator-results{
+background:whitesmoke;
+border-top:1px solid black;
+margin-top:-1px;
+padding:10px;
+border-bottom-left-radius:5px;
+border-bottom-right-radius:5px;
+align-items:right;
+}
+.timeerror{
+display:none;
+color:#da0000;
+font-weight:bold;
+font-family:monospace;
+}
+.timenumber{
+display:none;
+font-weight:bold;
+font-family:monospace;
+}
+.timenumber::before{
+content:"= ";
+font-weight:normal;
+}
+@media only screen and (max-width: 768px) {
+	.calculator-row td{
+		padding:0px;
+	}
+	.calculator-button{
+		width:100%;
+		border:1px solid gray !important;
+		border-radius:0px !important;
+		background-color:lightgray !important;
+		font-weight:bold;
+	}
+	.calculator-results{
+		border-bottom-left-radius:0px;
+		border-bottom-right-radius:0px;
+	}
+}
+</style>
+</head>
+<body>
+<div class="container">
+<div class="text-container">
+<div id="search-container">
+<form onsubmit ="searchfor(searchinput.value,event);return false;">
+<ul class="group" style="margin-bottom:0;" style="height:40px;">
+	<li class="grow"> <input type="search" onkeydown="inputtext(window.event)" style="border-bottom-left-radius:0 !important;" id="searchinput" placeholder="e.g. 2h30min + 2 * 48min28s =">
+	<li> <button type="submit" style="border-bottom-right-radius:0 !important;">Calculate</button>
+</ul>
+<div class="calculator-results">
+<ul style="display:flex;margin:0;padding:0;">
+<div class="grow"></div>
+<div class="timenumber"></div>
+<div class="timeerror"></div>
+<table class="timetable"><tr>
+<td id="dtimeday">000<td>:<td id="dtimehour">00   <td>:<td id="dtimemin">00     <td>:<td id="dtimesec">00
+<tr><td>Days<sup class="dtimeexp"></sup><td><td>Hours<sup class="dtimeexp"></sup><td> <td>Minutes<sup class="dtimeexp"></sup><td> <td>Seconds<sup class="dtimeexp"></sup></div>
+</table>
+</div>
+<table class="calculator-row-table">
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">Hide</button>
+	<td class="grow"><button type="button" class="button calculator-button">(</button>
+	<td class="grow"><button type="button" class="button calculator-button">)</button>
+	<td class="grow"><button type="button" class="button calculator-button calculator-focus">CE</button>
+</tr>
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">H</button>
+	<td class="grow"><button type="button" class="button calculator-button">Min</button>
+	<td class="grow"><button type="button" class="button calculator-button">Sec</button>
+	<td class="grow"><button type="button" class="button calculator-button">&larr;</button>
+</tr>
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">1</button>
+	<td class="grow"><button type="button" class="button calculator-button">2</button>
+	<td class="grow"><button type="button" class="button calculator-button">3</button>
+	<td class="grow"><button type="button" class="button calculator-button">÷</button>
+</tr>
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">4</button>
+	<td class="grow"><button type="button" class="button calculator-button">5</button>
+	<td class="grow"><button type="button" class="button calculator-button">6</button>
+	<td class="grow"><button type="button" class="button calculator-button">×</button>
+</tr>
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">7</button>
+	<td class="grow"><button type="button" class="button calculator-button">8</button>
+	<td class="grow"><button type="button" class="button calculator-button">9</button>
+	<td class="grow"><button type="button" class="button calculator-button">-</button>
+</tr>
+<tr class="group calculator-row">
+	<td class="grow"><button type="button" class="button calculator-button">0</button>
+	<td class="grow"><button type="button" class="button calculator-button">.</button>
+	<td class="grow"><button type="button" class="button calculator-button calculator-focus">=</button>
+	<td class="grow"><button type="button" class="button calculator-button">+</button>
+</tr>
+</table>
+</form>
+</div>
+
+
+
+</div>
+</div>
+<script type="text/javascript">load()</script>
+</body>
+</html>
