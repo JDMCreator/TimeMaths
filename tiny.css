@@ -91,9 +91,13 @@ padding:0px 5px;
 }
 @media screen and (max-width: 62rem) {
 	.text-container{
-		padding-left:1rem;
-		padding-right:1rem;
+		//padding-left:1rem;
+		//padding-right:1rem;
+		padding:0 !important;
+		margin:0 !important;
 	}
+	form > ul:first-of-type{margin:0 !important;}
+	html body{margin:0 !important;padding:0 !important;}
 }
 
 /* ===== Links ===== */
