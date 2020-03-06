@@ -376,7 +376,7 @@ function printResult(result){
 		if(result.m != 0){html+= result.m +" m"+exp+" "}
 		if(result.s != 0){html+= result.s +" s"+exp+" "}
 setHTML(".dtimeexp", result.u === 1 ? "" : result.u);
-		if(result.u===1){
+		if(result.u || true){
 			html += " (";
 			var day = Math.floor(result.s/(3600*24)),html2="";
 			result.s%=3600*24;
@@ -570,7 +570,7 @@ function calculateTerm(term){
 var regSecs = /^([0-9]+(?:|\.[0-9]+))(?:s|sec|)$/i,
 regMins = /^([0-9]+)(?:\:|min)([0-9]+(?:|\.[0-9]+))(?:s|sec|)$/i,
 regHours = /^([0-9]+)(?:\:|hours?|h)(?:([0-9]+)(?:\:|min|minutes?)|)(?:([0-9]+(?:|\.[0-9]+))(?:s|sec|)|)$/i,
-regUnique = /^([0-9]+(?:|\.[0-9]+))(s|sec|d|min|h|w|mon|j|days?|minutes?|months?|year?s|y)$/i
+regUnique = /^([0-9]+(?:|\.[0-9]+))(ms|milliseconds?|seconds?|s|sec|d|min|h|w|mon|j|days?|minutes?|months?|year?s|y)$/i
 function evaluateDate(term){
 term = term.value || term;
 	var result;
@@ -597,7 +597,7 @@ term = term.value || term;
 			result = value;type=typo;
 			
 		})
-		if(type == "sec" || type == "s"){
+		if(type == "sec" || type == "s" || type == "second" || type == "seconds"){
 			return {type:2,m:0,s:result, u:1}
 		}
 		else if(type == "min" || type == "minute" || type == "minutes"){
@@ -617,6 +617,9 @@ term = term.value || term;
 		}
 		else if(type == "y" || type == "year" || type == "years"){
 			return {type:2,m:result*12,s:0, u:1}			
+		}
+		else if(type == "ms" || type == "millisecond" || type == "milliseconds"){
+			return {type:2,m:0,s:result/1000, u:1}
 		}
 		else{
 			alert("ERROR : error in unique date format. Please report to developer.");
