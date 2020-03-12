@@ -728,9 +728,17 @@ function load(){
 		}, passiveSupported ? { passive: false } : false)
 	}
 	var searchinput = document.getElementById("searchinput");
-	if("selectionstart" in searchinput && searchinput.value != ""){
-		searchinput.selectionEnd = searchinput.selectionStart = searchinput.value.length-1
+	if("selectionStart" in searchinput && searchinput.value != ""){
+		searchinput.selectionEnd = searchinput.selectionStart = searchinput.value.length
 	}
 	t = document.querySelector(".calculator-results");
 	t.style.height = (t.offsetHeight-20) + "px";
 }
+// Start "load()" function
+;(function(){
+if (/complete|interactive|loaded/.test(document.readyState)) {
+    load();
+} else {
+    document.addEventListener('DOMContentLoaded', load, false);
+}
+})();
