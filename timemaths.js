@@ -9,267 +9,16 @@ window.addEventListener("popstate", function(e){
 		}
 	}
 }, false);
-data = [];
-datao = {}
-ready = false;
-var lastResults = [];
-function call(o){
-	data = o.articles;
-	var start = +new Date();
-	for(var i=0;i<data.length;i++){
-		var el = data[i], number = el.number;
-		datao[number] = el;
-		el.index = i;
-		el.cnumber = parseFloat(number, 10) || parseInt(number,10);
-		el.position = el.position.replace(/section([^,]+)/, function(a,b){
-			return "section"+b.toUpperCase();
-		}).replace(/(section[^,]+,[^,]+,)([^,]+)/, function(a,b,c){
-			return b + c.toUpperCase();
-		}).replace(/\_(\d+)/g, ".$1");
-	}
-	ready = true;
+var TimeStop = false;
+function isOperator(c){
+	return c == "-" || c == "+" || c == "/" || c == "*" || c == "%" || c == "~" || c == "(";
+}
 
-	var r = /[^a-z]q=([^&?#]+)/i;
-	if(r.test(location.search)){
-		var q = decodeURIComponent(r.exec(location.search)[1]);
-		searchinput.value = q;
-		searchfor(q, {preventDefault:new Function()}, true);
-	}
-	var start = /[^a-z]start=([^&?#]+)/i.exec(location.search),
-	end = /[^a-z]start=([^&?#]+)/i.exec(location.search)
-	if(r && start){
-		start = +start[1];
-		end = +(end ? end[1] : start+99);
-		if(start && end){
-			showResults(start, end, true);
-		}
-	}
-}
-function keyarticle(e){
-	if(e.keyCode === 40 || e.keyCode === 39){ // Down or Right key
-		if(this.nextSibling){
-			this.nextSibling.focus();
-		}
-	}
-	else if(e.keyCode == 38 || e.keyCode === 37){ // Up or Left key
-		if(this.previousSibling){
-			this.previousSibling.focus();
-		}
-	}
-}
 function setHTML(selector, html){
 	var q = document.querySelectorAll(selector);
 	for(var i=0;i<selector.length;i++){
 		q[i] ? q[i].innerHTML = html : null;
 	}
-}
-function buildResults(term){
-	var results = [];
-	term = (term || "").trim();
-	if(!ready || !term){return results}
-	var terms = [];
-	term = term.replace(/(?:^|\s)("([^"]*|")")(?:\s|$)/g, function(a,b){
-		terms.push(b);
-		return " ";
-	}).trim();
-	term = term.split(/\s+/);
-	terms = terms.concat(term);	
-	for(var i=0;i<terms.length;i++){
-		var result = search(terms[i]);
-		if(result && result.length > 0){
-			results.push.apply(results, result);
-		}
-	}
-	return results;
-}
-function search(term){
-	if(!ready){return;}
-	term = (term || "").trim();
-	if(!term){return;}
-
-	if(/^[0-9.]+$/.test(term)){
-		term = term.replace(/^0+/, "");
-		if(/^(([0-9]+)|([0-9]+[0-9.]+[0-9]+))$/.test(term)){
-			return [datao[term]];
-		}
-		return [];
-	}
-	if(/^([0-9.]+)\s*\-\s*([0-9.]+)$/.test(term)){
-		var t = /^([0-9.]+)\s*\-\s*([0-9.]+)$/.exec(term);
-		var first = parseFloat(t[1]);
-		var second = parseFloat(t[2]);
-		if(first && second){
-			var fr = datao[first.toString()]
-			if(fr){
-				var results = [];
-				for(var i=fr.index;i<data.length;i++){
-					var d = data[i]
-					if(d.cnumber >= first && d.cnumber <= second){
-						results.push(d)
-					}
-					else{
-						break;
-					}
-				}
-				return results;
-			}
-		}
-		return []
-	}
-	else if(/^[0-9\?\*\.]+$/.test(term)){
-		// We create a reg
-		var results = [];
-		var t = new RegExp("^"+term.replace(/\./g, "\\.").replace(/\?/g,"\\d").replace(/\*/g,"[\\d.]*")+"$", "i");
-		for(var i=0;i<data.length;i++){
-			var datai = data[i], number = datai.number;
-			if(t.test(number)){
-				results.push(datai);
-			}
-		}
-		return results;
-		
-	}
-	else if(/^(lastdate|date)\s*[<>=\:]\s*\d{4}/.test(term)){
-		var results = []
-		var date = /^(?:lastdate|date)\s*([<>=\:])\s*(\d{4})/.exec(term);
-		var eq = date[1];
-		date = date[2];
-
-		for(var i=0;i<data.length;i++){
-			var h = (/(\d{4})[^;]*$/.exec(data[i].historical)||[])[1];
-			if(eq == "<" && h<date){
-				results.push(data[i]);
-			}
-			else if(eq == ">" && h>date){
-				results.push(data[i]);
-			}
-			else if((eq == "=" || eq == ":") && h == date){
-				results.push(data[i]);
-			}
-		}
-		return results
-	}
-	else if(/^[^-\?\*'’\^]+$/.test(term)){
-		var results = [];
-		term = term.replace(/^"(.*)"$/g, "$1").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
-		if(term){
-			for(var i=0;i<data.length;i++){
-				var d = data[i];
-				if(!d.normalizedText){
-					d.normalizedText = d.text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-				}
-				if(d.normalizedText.indexOf(term) > -1){
-					results.push(d);
-				}
-			}
-		}
-		return results
-	}
-	else{
-		var results = [];
-		term = term.replace(/^"(.*)"$/g, "$1").trim();
-		if(term){
-			var regexp = buildRegExpFromTerm(term);
-			window.last=regexp;
-			for(var i=0;i<data.length;i++){
-				var d = data[i];
-				if(regexp.test(d.text.normalize("NFD"))){
-					results.push(d);
-				}
-			}
-		}
-		return results;
-	}
-}
-var el = (function(){
-})();
-function buildElement(){
-}
-function buildRegExpFromTerm(term){
-	var regexp = term.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-	console.log(regexp);
-	var s = "";
-	regexp=regexp.replace(/./g,function(char){
-		if(char == "*"){
-			return "\w*"
-		}
-		else if(char == "’" || char == "'"){
-			return "[’']";
-		}
-		else if(char == "-"){
-			return "\-*";
-		}
-		else if(char == "^"){
-			return "\\b";
-		}
-		var v =char.charCodeAt(0).toString(16);
-		if(v.length === 1){v = "000"+v}
-		else if(v.length === 2){v = "00"+v}
-		else if(v.length === 3){v = "0"+v}
-		return "[\\u0300-\\u036f]*\\u"+v;
-	});
-	return new RegExp(regexp, "i");
-}
-function showResults(start, end, ignore){
-if(start.preventDefault){start.preventDefault();scrollTo(0,0)}
-
-		var results = lastResults;
-if(!results){return;}
-		var active = pages.querySelector(".active");
-		if(active){active.classList.remove("active");}
-		if(this && this.tagName){
-			start = +this.getAttribute("data-start");
-			end = +this.getAttribute("data-end");
-			this.classList.add("active");
-		}
-		if(!ignore){
-			history.pushState({start:start,end:end},"Recherche", "?q="+encodeURIComponent(searchinput.value)+"&start="+encodeURIComponent(start)+"&end="+encodeURIComponent(end))
-		}
-		var main = document.createElement("div");
-		main.id = "main";
-		var todelete = document.getElementById("main");
-		var resultslength = results.length;
-		for(var i=start, result;i<Math.min(results.length, end+1);i++){
-			result = results[i];
-			if(!result){resultslength--;continue;}
-			var div = document.createElement("div"),
-			text = document.createTextNode(result.text),
-			subdiv = document.createElement("div");
-			div.addEventListener("keydown", keyarticle, false);
-			div.className = "article";
-			div.tabIndex="0";
-			div.setAttribute("data-number", result.number);
-
-			var div2 = document.createElement("div");
-			div2.className="position";
-			div2.innerText = result.position;
-			var div3 = document.createElement("div");
-			div3.className = "artnumber";
-			div3.innerText = result.number+". ";
-			subdiv.appendChild(div3);
-			div.appendChild(div2);
-			subdiv.appendChild(text);
-			subdiv.className = "arttext";
-			div.appendChild(subdiv);
-			div2 = document.createElement("div");
-			div2.className = "historical";
-			div2.innerText = result.historical;
-			var div3 = document.createElement("div");
-			div2.appendChild(div3);
-			div3.innerHTML='<a href="https://legisquebec.gouv.qc.ca/fr/showdoc/cs/CCQ-1991#se:'+result.number.replace(/\./g,'_')+'">Voir sur LégisQuébec</a>|<a href="https://ccq.lexum.com/w/ccq/fr#!fragment/art'+result.number+'/">Voir sur Qweri</a>';
-			div.appendChild(div2);
-			main.appendChild(div);
-		}
-		if(todelete){
-			todelete.parentNode.replaceChild(main,todelete);
-		}
-		else{
-			document.getElementById("main-container").appendChild(main);
-		}
-	
-}
-function isOperator(c){
-	return c == "-" || c == "+" || c == "/" || c == "*" || c == "%" || c == "~" || c == "(";
 }
 function searchfor(term,e, ignore){
 	if(e){e.preventDefault();}
@@ -278,6 +27,7 @@ function searchfor(term,e, ignore){
 	}
 	var start = performance.now();
 	var results = [];
+	TimeStop = true;
 	
 	// TODO : Implement comments
 
@@ -286,7 +36,10 @@ function searchfor(term,e, ignore){
 	// Remove whitespaces
 	term = term.replace(/[\s=]+/g,"");
 
-	printResult(calculateExpression(term));
+	var result = calculateExpression(term)
+	if(TimeStop){
+		printResult(result);
+	};
 	var end = performance.now();
 	console.info("Calculated in "+(end-start)+"ms");
 }
@@ -333,12 +86,14 @@ function calculateExpression(term){
 					leftResult.value += right.value;
 				}
 				else if(leftResult.type == 2){
-					if(leftResult.u != right.u){alert("ERROR : Exponent")}
+					if(leftResult.u != right.u){
+						printError("ERR : You can't add times which doesn't have the same exponent.")
+					}
 					leftResult.m += right.m;
 					leftResult.s += right.s;
 				}
 			}
-			else{alert("ERROR : Wrongful type")}
+			else{printError("You can't add time and number together")}
 		}
 		else if(terms[i] == "-"){
 			if(leftResult.type == right.type){
@@ -346,12 +101,14 @@ function calculateExpression(term){
 					leftResult.value -= right.value;
 				}
 				else if(leftResult.type == 2){
-					if(leftResult.u != right.u){alert("ERROR : Exponent")}
+					if(leftResult.u != right.u){
+						printError("ERR : You can't substract times which doesn't have the same exponent.")
+					}
 					leftResult.m -= right.m;
 					leftResult.s -= right.s;
 				}
 			}
-			else{alert("ERROR : Wrongful type")}
+			else{printError("You can't substract time and number together")}
 		}
 	}
 	return (leftResult);
@@ -700,16 +457,36 @@ function handleButton(text){
 		var d = document.createElement("div");
 		d.innerHTML = "&larr;";
 		if(d.innerText == text){
-			var startPos = searchinput.selectionStart;
-       			var endPos = searchinput.selectionEnd;
-        		searchinput.value = searchinput.value.substring(0, startPos-1)
-			+ searchinput.value.substring(endPos, searchinput.value.length);
-	searchinput.selectionStart = Math.max(startPos-1,0);
-	searchinput.selectionEnd = Math.max(startPos-1,0);
+			eraseText(searchinput);
 		}
 	}
 }
+function eraseText(searchinput, looping){
+	var startPos = searchinput.selectionStart;
+       	var endPos = searchinput.selectionEnd;
+
+	var char = searchinput.value.substring(startPos-1, endPos);
+	if(/^[ a-zA-Z]+$/.test(char)){
+		char = true;
+	}
+	else{
+		if(looping){
+			return true;
+		}
+		else{
+			char = false;
+		}
+	}
+        searchinput.value = searchinput.value.substring(0, startPos-1)
+		+ searchinput.value.substring(endPos, searchinput.value.length);
+	searchinput.selectionStart = Math.max(startPos-1,0);
+	searchinput.selectionEnd = Math.max(startPos-1,0);
+	if(char){
+		eraseText(searchinput, true);
+	}
+}
 function printError(err){
+	TimeStop = false;
 	document.querySelector(".timetable").style.display = "none";
 	document.querySelector(".timeerror").style.display = "block";
 	document.querySelector(".timenumber").style.display = "none";
