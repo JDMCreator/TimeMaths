@@ -562,9 +562,12 @@ ul.group > li:last-of-type > *{
 .button:active, .container button:not(.default):active{
 	//background-color:lightgray !important;
 }
-@media (hover: hover){
+.button:hover, .container button:not(.default):hover{	
+	background-image:linear-gradient(0,rgba(0,0,0,0.25),rgba(0,0,0,0.25)), linear-gradient(0,rgba(255,255,255,0.25), rgba(255,255,255,0.25));
+}
+@media (any-hover: none), (any-pointer:coarse){
 	.button:hover, .container button:not(.default):hover{	
-		background-image:linear-gradient(0,rgba(0,0,0,0.25),rgba(0,0,0,0.25)), linear-gradient(0,rgba(255,255,255,0.25), rgba(255,255,255,0.25));
+		background-image:none;
 	}
 }
 p{margin-block-start:0;margin-block-end:0;}
