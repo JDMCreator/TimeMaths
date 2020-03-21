@@ -33,10 +33,36 @@ function searchfor(term,e, ignore){
 
 	// TODO : Correct parentheses
 
-	// Remove whitespaces
 	term = term.replace(/[\s=]+/g,"");
 
-	var result = calculateExpression(term)
+	var newterm = "", par = 0;
+	for(var i=0;i<term.length;i++){
+		var c = term[i];
+		if(c == "("){
+			par++;
+		}
+		if(c == ")"){
+			par--;
+			if(par < 0){
+				par = 0;
+			}
+			else{
+				newterm += c;
+			}
+		}
+		else{
+			newterm += c;
+		}
+	}
+	for(var i=0;i<par;i++){
+		newterm += ")";
+	}
+	newterm = newterm.replace(/[-+*/\%]*($|\))/i, "$1");
+	if(newterm != term){
+	}
+	// Remove whitespaces
+
+	var result = calculateExpression(newterm)
 	if(TimeStop){
 		printResult(result);
 	};
