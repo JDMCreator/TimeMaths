@@ -60,7 +60,7 @@ padding:3px;
 	height:7em;
 	display:inline-block;
 }
-td:not([data-uuid]) .player-container{
+td[id^="player"]:not([data-uuid]) .player-container{
 	visibility:hidden;
 }
 td .player-container{
