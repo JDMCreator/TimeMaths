@@ -1,0 +1,66 @@
+
+
+<!DOCTYPE html>
+<html lang="en">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<meta http-equiv="X-UA-Compatible" content="ie=edge">
+		<title>Guess the Drawing!</title>
+		<link rel="stylesheet" href="style.css">
+	</head>
+	<body>
+		<div id="create-game">
+			<center><br>
+				<button onclick="createGame()">Create Game</button>
+			</center>
+		</div>
+		<div id="game-interface">
+		<table id="table-layout"><tr><td>
+			<div id="status"></div>
+			<div id="state"></div>
+			<div id="people"></div>
+			<script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.21.7.js"></script>
+			<script src="https://cdn.jsdelivr.net/npm/chat-engine@0.9.18/dist/chat-engine.min.js"></script> 
+			<script src="pokersolver.js"></script> 
+			<script src="lobby.js"></script>
+			<table class="table-table">
+				<tr>
+					<td></td>
+					<td id="player1"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td id="player2"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td id="player3"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td></td>
+				<tr>
+					<td id="player4"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td colspan=3>
+						<div id="table"></div>
+					</td>
+					<td id="player5"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+				<tr>
+					<td></td>
+					<td id="player6"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td id="player7"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td id="player8"><div class="player-container"><span class="player-label"></span><span class="total-money"></span><span class="money-label">0</span></div></td>
+					<td></td>
+			</table>
+			<button id="start">Start game</button>
+			<div id="controls">
+				<input id="player-name" placeholder="Your name"><button id="name-button">Set name</button>
+				<input type="button" id="check-button" value="Check"> <button id="fold-button">Fold</button>
+				<table id="table-raise-layout">
+					<tr><td><input value="0" min="0" max="100" type="range" id="raise-range"></td></tr>
+					<tr><td><input value="0" id="raise-value"><button id="raise-button">Raise</button></td></tr>
+				<tr><td><div class="chip" style="background:#317DDD;" onclick="window.raiseValue(25)">25</div><div class="chip" style="background:#DD4631" onclick="window.raiseValue(50)">50</div>
+				<div class="chip" style="background:forest;" onclick="window.raiseValue(100)">100</div>
+				<div class="chip" style="background:#555;" onclick="window.raiseValue(500)">500</div></td></tr></table>
+				<div id="cards"></div>
+			</div>
+		</div>
+		</td><td><ul id="messages"></ul></td></tr></table>
+		</div>
+		</div>
+	</body>
+	<script type="text/javascript">load()</script>
+</html>
+

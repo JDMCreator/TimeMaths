@@ -1,0 +1,122 @@
+html,body {
+  height: 90vh;
+  width: 100%;
+	background: rgb(207, 219, 245);
+	font-family:-apple-system, system-ui, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+margin:0;padding:0;
+}
+#table{
+background:radial-gradient(green, darkgreen);
+min-width:30em;
+height:15em;
+border-radius: 25% 25% 25% 25% / 50% 50% 50% 50%;
+border:4px solid black;
+display:table-cell;
+vertical-align:middle
+}
+.table-table{
+	table-layout:fixed;
+}
+.table-table td span:first-child{
+min-height:1ex;
+min-width:9em;
+}
+#table-layout{
+	vertical-align:top;
+	width:100%;
+}
+#table-layout td{
+	vertical-align:top;
+}
+.table-table td:not([colspan]){
+	width:10em;
+	height:3ex;
+}
+.table-table td span:not([class]):empty ~ span{
+	display:none;
+}
+#messages{
+margin:0;
+list-style: none;
+padding:0;
+}
+#messages li:first-child{
+border-top:1px solid #333;
+}
+#messages li{
+list-style: none;
+border-bottom:1px solid #333;
+padding:3px;
+}
+.table-table td{
+	text-align:center;
+	vertical-align:middle;
+	position:relative;
+}
+.main{
+	display: inline-block;
+}
+.card{
+	height:7em;
+	display:inline-block;
+}
+td:not([data-uuid]) .player-container{
+	visibility:hidden;
+}
+td .player-container{
+	display:inline-block;
+	background:darkorange;
+	padding:5px;
+	background:rgb(211,211,211,0.8);
+	border:2px solid gray;
+	border-radius:5px;
+}
+td.in-game .player-container{
+	background:rgb(115,190,115,0.8);
+	border:2px solid green;
+}
+td.in-game.fold .player-container{
+	background:rgb(168,110,18,0.8);
+	border-color:gray;
+}
+.player-label{
+	font-weight:bold;
+}
+.total-money{
+}
+.total-money::after{
+	content:" ";
+	display:block;
+}
+.money-label::before{
+	content:"Bet: "
+}
+#create-game,#game-interface{
+	display:none;
+}
+#left{
+	padding:5px;
+}
+#right{
+	width:300px;
+}
+#game-interface::after,#right::after{
+	content:" ";
+	clear:both;
+}
+#table-raise-layout{
+	display:inline-table;
+}
+.chip{
+	width:50px;
+	height:50px;
+	display:inline-block;
+	line-height:50px;
+	text-align:center;
+	background:red;
+	color:white;
+	font-weight:bold;
+	font-size:1.3em;
+	border:0.5em dashed white;
+	border-radius:50%;
+}
