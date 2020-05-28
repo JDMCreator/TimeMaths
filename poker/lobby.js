@@ -1165,3 +1165,9 @@ function createGame(){
 function showRaise(){
 	var btn = document.getElement
 }
+if(document.readyState == "complete"){
+	load();
+}
+else{
+	window.addEventListener("load",load,false);
+}
