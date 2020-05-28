@@ -57,6 +57,9 @@ function shuffle(array) {
     let lobby = location.hash.substr(2);
     let name = "Xavier";
 	player.name = localStorage.getItem("player-name") || "user"+Math.floor(Math.random()*10000);
+    if(player.name.length > 15){
+	player.name = player.name.substring(0,15);
+     }
     localStorage.setItem("player-name",player.name)
     lobby = lobby + 'Lobby'; // separate channel for lobby
     var newUUID = window.localStorage.getItem("uuid");
@@ -133,8 +136,9 @@ function shuffle(array) {
 	function updatePlayerStatus(then){
 		PN.hereNow({channels:[lobby], includeState:true}, function(status, response){
 			var t = response.channels[lobby];
-			if(t.occupants.length>1){
+			if(t.occupants.length>1 && !game.turn){
 				document.getElementById("status").innerHTML = "You can start when you want";
+				document.getElementById("start").style.display = "block";
 				document.getElementById("start").addEventListener("click",function(e){startTurn()},false);
 			}
 			var playerList = [];
@@ -144,15 +148,21 @@ function shuffle(array) {
 				}
 			}
 			players = playerList.sort(function(a,b){return (a.uuid > b.uuid) ? 1 : -1})
-			console.dir(players);
 			for(var i=0;i<8;i++){
 				var td = document.getElementById("player"+(i+1));
 				td.querySelector(".player-label").innerText=((playerList[i]||{}).state||{}).name||"";
 				if(playerList[i] && playerList[i].uuid){
 					td.dataset.uuid = playerList[i].uuid;
+					if(playerList[i].uuid == newUUID){
+						td.classList.add("self-player")
+					}
+					else{
+						td.classList.remove("self-player")
+					}
 				}
 				else{
 					td.removeAttribute("data-uuid");
+					td.classList.remove("self-player")
 				}
 			}
 			if(then){then.call(this)}
@@ -164,8 +174,11 @@ function shuffle(array) {
 		type = ["c","d","h","s"][card.type]
 		return nb+type;
 	}
-	function log(msg,html){
+        function log(msg,html,classList){
 		var t = document.createElement("li");
+		if(classList){
+			t.className = classList;
+		}
 		if(html){t.innerHTML = msg}
 		else{
 		t.innerText = msg;}
@@ -184,8 +197,7 @@ function shuffle(array) {
 			player.cards = [deck.draw(), deck.draw()]
 			player.bet = 0;
 			if(players[i].uuid == uuid){
-				player.smallBlind = true;
-				player.bet = 25;
+				player.dealer = true;
 			}
 			player.fold = false;
 			player.score = cardValue([
@@ -196,13 +208,19 @@ function shuffle(array) {
 				turn.host[4],
 				player.cards[0],
 				player.cards[1],
-			]).score
+			])
+			player.type = player.score.type
+			player.score = player.score.score;
 		}
-		turn.smallBlind = uuid;
-		var bigBlind = nextUUID(uuid);
+		turn.dealer = uuid;
+		var smallBlind = nextUUID(uuid);
+		turn.players[smallBlind].smallBlind = true;
+		turn.players[smallBlind].bet = 25;
+		turn.smallBlind = smallBlind;
+		var bigBlind = nextUUID(smallBlind);
 		turn.players[bigBlind].bigBlind = true;
 		turn.players[bigBlind].bet = 50;
-		turn.bigBlind = bigBlind
+		turn.bigBlind = bigBlind;
 		turn.turnUUID = nextUUID(bigBlind);
 		msg({
 			type:"start_turn",
@@ -219,12 +237,12 @@ function nextUUID(uuid, nonfolded){
 			if(players[i].uuid == (uuid||game.turn.turnUUID)){
 				if(nonfolded){
 					for(var j=i+1;j<players.length;j++){
-						if(!game.turn.players[players[j].uuid].fold){
+						if(!game.turn.players[players[j].uuid].fold && game.players[players[j].uuid].money>=25){
 							return players[j].uuid;
 						}
 					}
 					for(var j=0;j<i;j++){
-						if(!game.turn.players[players[j].uuid].fold){
+						if(!game.turn.players[players[j].uuid].fold && game.players[players[j].uuid].money>=25){
 							return players[j].uuid;
 						}
 					}
@@ -280,18 +298,27 @@ function raiseRange(e){
 }
 function checkRaise(e){
 	if(!game.turn){
-		document.getElementById("raise-value").value = Math.floor(document.getElementById("raise-value").value/25)*25;
+		document.getElementById("raise-value").value = Math.max(0,Math.floor(document.getElementById("raise-value").value/25)*25);
 		return;
 	}
-	var money = game.players[newUUID].money;
+	var money = game.players[newUUID].money,
+	maxBet = 0;
+	forEachPlayer(function(){maxBet = Math.max(maxBet,Math.abs(this.bet))});
+	money -= (maxBet - Math.abs(game.turn.players[newUUID].bet))
 	if(isNaN(Number(document.getElementById("raise-value").value))){
 		document.getElementById("raise-value").value = 0;
 	}
 	else if(document.getElementById("raise-value").value < money){
-		document.getElementById("raise-value").value = Math.floor(document.getElementById("raise-value").value/25)*25;
+		document.getElementById("raise-value").value = Math.max(0,Math.floor(document.getElementById("raise-value").value/25)*25);
 	}
 	else{
 		document.getElementById("raise-value").value = money
+	}
+	if(document.getElementById("raise-value").value == 0){
+		document.getElementById("raise-button").disabled = "disabled"
+	}
+	else{
+		document.getElementById("raise-button").disabled = ""
 	}
 }
 function raise(){
@@ -324,6 +351,7 @@ window.raiseValue = function(val){
 }
 function setName(name){
 	name = (name && typeof name == "string") ? name : document.getElementById("player-name").value;
+	if(name.length > 15){name = name.substring(0,15);}
 	player.name = name;
 			PN.setState({
    				state: player,
@@ -342,14 +370,32 @@ document.getElementById("name-button").addEventListener("click",function(){setNa
 document.getElementById("player-name").value = localStorage.getItem("player-name") || "";
 }
 function buildTurn(){
-clearInterval(prepareInterval);
+	clearInterval(prepareInterval);
 	requestedReconnect = false;
 	if(!game.turn){return;}
-	var cards = printCards.apply(this,game.turn.players[newUUID].cards);
-	while(document.getElementById("cards").firstChild){
-		document.getElementById("cards").firstChild.parentNode.removeChild(document.getElementById("cards").firstChild);
+	var cards = printCards.apply(this,game.turn.players[newUUID].cards),
+	span = getTDbyUUID(newUUID).querySelector(".player-cards");
+	while(span.firstChild){
+		span.firstChild.parentNode.removeChild(span.firstChild);
 	}
-	document.getElementById("cards").appendChild(cards);
+	span.appendChild(cards.cloneNode(true));
+	var span = document.getElementById("cards");
+	while(span.firstChild){
+		span.firstChild.parentNode.removeChild(span.firstChild);
+	}
+	span.appendChild(cards);
+	var card = document.createElement("img");
+	card.className = "card";
+	card.src = "cards/back.png";
+	forEachPlayer(function(uuid){
+		if(uuid == newUUID){return true;}
+		var span = getTDbyUUID(uuid).querySelector(".player-cards");
+		while(span.firstChild){
+			span.firstChild.parentNode.removeChild(span.firstChild);
+		}
+		span.appendChild(card.cloneNode());
+		span.appendChild(card.cloneNode());
+	});
 	if(game.turn.turnUUID == newUUID){
 		showMyTurn();
 	}
@@ -358,20 +404,42 @@ clearInterval(prepareInterval);
 	}
 	refreshBets();
 	showGameState();
-	log("Turn started");
-	log("<b>"+getPlayerName(game.turn.turnUUID,true)+"</b> is playing...",true);
+	if(document.getElementById("messages").firstElementChild){
+		log("Turn started",true,"log-turn");
+	}
+
 }
 function refreshBets(){
+	if(game.turn){document.getElementById("start").style.display = "none";}
 	forEachPlayer(function(uuid){
 		if(game.players[uuid]){
 			var td = getTDbyUUID(uuid);
-			td.querySelector(".money-label").innerHTML = Number(this.bet);
-			td.querySelector(".total-money").innerHTML = game.players[uuid].money+"$";
-			if(this.fold){
-				getTDbyUUID(uuid).classList.add("fold");
+			td.querySelector(".money-label").innerHTML = Number(Math.abs(this.bet));
+			if(this.bet<0){
+				td.querySelector(".total-money").innerHTML = "All in";
+				td.classList.add("all-in");
 			}
 			else{
-				getTDbyUUID(uuid).classList.remove("fold");
+				td.querySelector(".total-money").innerHTML = game.players[uuid].money+"$";
+				td.classList.remove("all-in");
+			}
+			if(this.dealer){
+				td.classList.add("dealer");
+			}
+			else{
+				td.classList.remove("dealer");
+			}
+			if(this.fold){
+				td.classList.add("fold");
+			}
+			else{
+				td.classList.remove("fold");
+			}
+			if(uuid == game.turn.turnUUID){
+				td.classList.add("turn");
+			}
+			else{
+				td.classList.remove("turn");
 			}
 		}
 	});
@@ -492,24 +560,24 @@ function cardValue(cards){
 	if(isFlush || isStraightFlush || isStraight){
 		if(isStraightFlush){
 			if(isRoyal){
-				return {type:8,score:200000}
+				return {type:9,score:200000}
 			}
 			else{
-				return {type:7,score:182000+flstraight}
+				return {type:8,score:182000+flstraight}
 			}
 		}
 		else if(isFlush && !isStraight){
-			return {type:6,high:flushnumber==0?14:flushnumber,score:181000+(flushnumber==0?14:flushnumber)}
+			return {type:5,high:flushnumber==0?14:flushnumber,score:166000+(flushnumber==0?14:flushnumber)}
 		}
 		else if(isStraight){
-			score = 180000;
+			score = 169500;
 			if(isRoyal){
 				score += 14;
 			}
 			else{
 				score += straight;
 			}
-			return {type:5,high:isRoyal?0:straight,score:score}
+			return {type:4,high:isRoyal?0:straight,score:score}
 		}
 	}
 	else{
@@ -550,10 +618,10 @@ function cardValue(cards){
 					break;
 				}
 			}
-			score = 170000;
+			score = 175000;
 			score += max;
 			score += (what==0?14:what)*100;
-			return {type:4,what:what,score:score,hc:max}
+			return {type:7,what:what,score:score,hc:max}
 		}
 		pairs = pairs.sort(function(a,b){
 			if(a == 0){return 1}
@@ -562,10 +630,11 @@ function cardValue(cards){
 		});
 		if(isThree){
 			if(pairs.length>0){
-				var score = 165000;
+				// Full house
+				var score = 170000;
 				score += pairs[pairs.length-1];
 				score += what*10;
-				return {type:9,what:what,pair:pairs[pairs.length-1],score:score}
+				return {type:6,what:what,pair:pairs[pairs.length-1],score:score}
 			}
 			else{
 				var max = []
@@ -689,49 +758,128 @@ function showGameState(hide){
 	if(!game.turn.state){return;}
 	var host = game.turn.host,
 	state = game.turn.state;
+	var types = ["High card","Pair", "Two Pairs", "Three Of A Kind", "Straight", "Flush", "Full House", "Four Of A Kind", "Straight Flush","Royal Flush"],
+	card1 = game.turn.players[newUUID].cards[0],
+	card2 = game.turn.players[newUUID].cards[1];
 	if(state == 1){
-		document.getElementById("table").appendChild(printCards(host[0],host[1],host[2]))
+		document.getElementById("table").appendChild(printCards(host[0],host[1],host[2]));
+		document.getElementById("cards-label").innerHTML = types[cardValue([host[0],host[1],host[2],card1,card2]).type];
+		log("<b>Flop</b> ("+cardText(host[0], true)+", "+cardText(host[1],true)+" and "+cardText(host[2], true)+")", true);
 	}
 	else if(state == 2){
 		document.getElementById("table").appendChild(printCards(host[0],host[1],host[2],host[3]))
+		document.getElementById("cards-label").innerHTML = types[cardValue([host[0],host[1],host[2],host[3],card1,card2]).type];
+		log("<b>Turn</b> ("+cardText(host[3],true)+")", true);
 	}
 	else if(state == 3){
 		document.getElementById("table").appendChild(printCards(host[0],host[1],host[2],host[3],host[4]))
+		document.getElementById("cards-label").innerHTML = types[cardValue([host[0],host[1],host[2],host[3],host[4],card1,card2]).type];
+		log("<b>River</b> ("+cardText(host[4],true)+")", true);
 	}
-	else if(state == 4){
+	else if(state = 4){
 		if(!hide){
 			document.getElementById("table").appendChild(printCards(host[0],host[1],host[2],host[3],host[4]))
 		}
-		console.log(game.turn);
-		var maxScore=0, uuid=[];
 		for(var i in game.turn.players){
 			if(game.turn.players.hasOwnProperty(i) && !game.turn.players[i].fold){
 				var player = game.turn.players[i];
+				var type = types[player.type]
 				if(!hide){
-					log("Player <b>"+getPlayerName(i,true)+"</b> reveals "+cardText(player.cards[0],true)+" and "+cardText(player.cards[1],true)+".",true);
+					log("Player <b>"+getPlayerName(i,true)+"</b> reveals "+cardText(player.cards[0],true)+" and "+cardText(player.cards[1],true) + " ("+type+").",true);
+					if(i !== newUUID){
+						var span = getTDbyUUID(i).querySelector(".player-cards"),
+						cards = printCards.apply(this,player.cards);
+						while(span.firstChild){
+							span.firstChild.parentNode.removeChild(span.firstChild);
+						}
+						span.appendChild(cards);
+					}
 				}
 				showNotMyTurn();
-				if(player.score>maxScore){
-					maxScore = player.score;
-					uuid = [i];
-				}
-				else if(player.score == maxScore){
-					uuid.push(i);
-				}
 			}
 		}
 		// What was the bet
-		var totalBet = 0;
-		forEachPlayer(function(){
-			totalBet += this.bet;
-			this.bet = 0;
-		});
-		var winBet = Math.floor(totalBet/uuid.length/25)*25;
-		for(var i=0;i<uuid.length;i++){
-			game.players[uuid[i]].money += winBet;
+		var keepLooking = true,nbInit=0,
+		money = {};
+		while(keepLooking){
+			keepLooking = false,
+			maxScore = 0, uuid = [],isAllIn = false;
+			nbInit++;
+			if(nbInit>7){break;}
+			forEachPlayer(function(id){
+				if(!this.ignored){
+					if(this.score > maxScore){
+						maxScore = this.score;
+						uuid = [id];
+						if(this.bet<0){isAllIn = true}
+						else{isAllIn = false;}
+					}
+					else if(this.score == maxScore){
+						uuid.push(id);
+						if(this.bet<0){isAllIn = true}
+					}
+				}
+			},true);
+			if(isAllIn){
+				// Super complicated
+				// With sidepots
+				var players = [];
+				forEachPlayer(function(i){if(!("removed" in this)){this.removed = 0};this.uuid = i;players.push(this)});
+				players = players.sort(function(a, b) {
+   						 return parseFloat(Math.abs(a.bet)) - parseFloat(Math.abs(b.bet));
+					  });
+				var objUUID = {},
+				fixedRemoved = [];
+				for(var i=0;i<uuid.length;i++){
+					objUUID[uuid[i]] = true;
+					fixedRemoved.push(Math.abs(game.turn.players[uuid[i]].bet));
+				}
+				for(var i=0;i<uuid.length;i++){	
+					var activated = false,
+					amount = 0,
+					fixedRemoved = [];
+					nbInGame = uuid.length;
+					insidePlayer: for(var j=0;j<players.length;j++){
+						var portion = (Math.abs(players[j].bet)-players[j].removed)/nbInGame,
+						totalfx = 0;
+						fx: for(var k=0;k<fixedRemoved.length;k++){
+							if(fixedRemoved[k]<=portion){
+								break fx;
+							}
+							else{
+								totalfx += fixedRemoved[k];
+								portion = (Math.abs(players[j].bet) - players[j].removed - totalfx)/(nbInGame-(k+1));
+							}
+						}
+						if(portion > Math.abs(game.turn.players[uuid[i]].bet)){
+							amount += Math.abs(game.turn.players[uuid[i]].bet);
+							players[j].removed += Math.abs(game.turn.players[uuid[i]].bet);
+						}
+						else{
+							amount += portion;
+							players[j].removed += portion;
+						}
+					}
+					amount = Math.floor(amount/25)*25;
+					log("Player <b>"+getPlayerName(uuid[i],true)+"</b> wins "+amount+".",true);
+					game.players[uuid[i]].money += amount;
+					game.turn.players[uuid[i]].ignored = true;					
+				}
+				forEachPlayer(function(){
+					var rest = Math.abs(this.bet) - this.removed;
+					if(rest>1){keepLooking = true;}
+				});
+			}
+			else{
+				var total = 0;
+				forEachPlayer(function(){total+=Math.abs(this.bet)});
+				var win = Math.floor(total/uuid.length/25)*25;
+				for(var i=0;i<uuid.length;i++){
+					game.players[uuid[i]].money += win;
+					log("Player <b>"+getPlayerName(uuid[i],true)+"</b> wins "+win+".",true);
+				}
+			}
 		}
-		uuid = uuid.map(getPlayerName);
-		log("Player"+(uuid.length>1?"s":"")+" <b>"+uuid.join("</b>, <b>")+"</b> win"+(uuid.length==1?"s":"")+".",true);
 		prepareForNextRound();
 		refreshBets();
 	}
@@ -757,31 +905,44 @@ function showGameState(hide){
 			// Check for highest bet live
 			var maxBet = 0;
 			forEachPlayer(function(uuid){
-				maxBet = Math.max(maxBet, this.bet);
+				maxBet = Math.max(maxBet, Math.abs(this.bet));
 			});
 			var oldPlayer = game.turn.players[msg.message.uuid];
 			oldPlayer.alreadyPlayed = true;
 			if(msg.message.action == "check"){
 				// This handles 'check' and 'call' because 'check' is just a call of 0.
-				if(maxBet == oldPlayer.bet){
+				if(maxBet == Math.abs(oldPlayer.bet)){
 					log("<b>"+getPlayerName(msg.message.uuid,true)+"</b> checks.",true);
 				}
 				else{
 					log("<b>"+getPlayerName(msg.message.uuid,true)+"</b> calls.",true);
 				}
-				game.players[msg.message.uuid].money -= maxBet - oldPlayer.bet;
-				oldPlayer.bet = maxBet;
+				if(maxBet >= game.players[msg.message.uuid].money){
+					// All in
+
+					oldPlayer.bet = (-game.players[msg.message.uuid].money)-Math.abs(oldPlayer.bet);
+					game.players[msg.message.uuid].money = 0;
+				}
+				else{
+					game.players[msg.message.uuid].money -= maxBet - Math.abs(oldPlayer.bet);
+					oldPlayer.bet = maxBet;
+				}
 				refreshBets();
 			}
 			else if(msg.message.action == "raise"){
 				var amount = msg.message.amount;
-				amount = Math.min(amount, game.players[msg.message.uuid].money);
-				if(amount < game.players[msg.message.uuid].money){
+				amount = Math.max(0,Math.min(amount, game.players[msg.message.uuid].money - (maxBet - Math.abs(oldPlayer.bet))));
+				if(amount + (maxBet - Math.abs(oldPlayer.bet)) < game.players[msg.message.uuid].money){
 					amount = Math.floor(amount/25)*25;
+					game.players[msg.message.uuid].money -= (maxBet - Math.abs(oldPlayer.bet)) + amount;
+					oldPlayer.bet = Number(maxBet) + Number(amount);
+					log("<b>"+getPlayerName(msg.message.uuid,true)+"</b> raises by "+amount+".",true);
 				}
-				log("<b>"+getPlayerName(msg.message.uuid,true)+"</b> raises by "+amount+".",true);
-				game.players[msg.message.uuid].money -= amount;
-				oldPlayer.bet = Number(maxBet) + Number(msg.message.amount);
+				else{
+					oldPlayer.bet = - Number(maxBet) - Number(game.players[msg.message.uuid].money) + Math.abs(oldPlayer.bet);
+					game.players[msg.message.uuid].money = 0;
+					log("<b>"+getPlayerName(msg.message.uuid,true)+"</b> raises by "+amount+".",true);
+				}
 				refreshBets();
 			}
 			else if(msg.message.action == "fold"){
@@ -805,7 +966,22 @@ function showGameState(hide){
 
 			}
 			else{showNotMyTurn(msg.message.next)}
-			if(isLastPlayer(msg.message.uuid)){
+			// Are All Player all in ?
+			var allin = true;
+			forEachPlayer(function(uuid){
+				if(game.players[uuid].money >= 25){
+					allin = false;return false;
+				}
+			});
+			if(allin){
+				game.turn.state = 4;
+				showGameState();
+				forEachPlayer(function(){
+					this.alreadyPlayed = false;
+				});
+				refreshBets();
+			}
+			else if(isLastPlayer(msg.message.uuid)){
 				game.turn.state++;
 				showGameState();
 				forEachPlayer(function(){
@@ -824,6 +1000,7 @@ function showGameState(hide){
 			document.getElementById("status").innerHTML = "Game started!";
 		}
 		else if(msg.message.type == "start_turn"){
+			document.getElementById("start").style.display = "none";
 			for(var i=0;i<players.length;i++){
 				if(!game.players[players[i].uuid]){
 					game.players[players[i].uuid] = {money:10000};
@@ -832,6 +1009,7 @@ function showGameState(hide){
 			game.players[msg.message.turn.smallBlind].money -= 25;
 			game.players[msg.message.turn.bigBlind].money -= 50;
 			game.turn = msg.message.turn;
+			console.dir(game.turn);
 			buildTurn();
 		}
 	},
@@ -862,39 +1040,45 @@ function prepareForNextRound(){
 	prepareInterval = window.setInterval(function(){
 		document.getElementById("status").innerHTML = "New turn in "+ten+"s";
 		ten--;
-		if(ten == 0){
+		if(ten <= 0){
 			clearInterval(prepareInterval);
 			newRound();
 		}
 	},1000);
 }
 function showMyTurn(){
+	document.querySelector("html").classList.add("self-turn");
 	document.getElementById("status").innerHTML="Your turn !"
 	document.getElementById("raise-value").value = document.getElementById("raise-range").value = 0;
-	document.getElementById("raise-button").disabled = "";
-	document.getElementById("check-button").disabled = "";
-	document.getElementById("raise-value").disabled = "";
-	document.getElementById("raise-value").disabled = "";
-	document.getElementById("fold-button").disabled = "";
+	var all = document.getElementById("controls").querySelectorAll("button,input");
+	for(var i=0;i<all.length;i++){
+		all[i].disabled = "";
+	}
+	document.getElementById("raise-button").disabled = "disabled"
 	var maxBet = 0;
-	forEachPlayer(function(){maxBet = Math.max(maxBet,this.bet)});
-	if(maxBet > game.turn.players[newUUID].bet){
-		document.getElementById("check-button").value = "Call "+(maxBet-game.turn.players[newUUID].bet);
+	forEachPlayer(function(){maxBet = Math.max(maxBet,Math.abs(this.bet))});
+	if(maxBet > Math.abs(game.turn.players[newUUID].bet)){
+		if(maxBet >= game.players[newUUID].money){
+			document.getElementById("check-button").value = "Call All-in";
+		}
+		else{
+			document.getElementById("check-button").value = "Call "+(maxBet-game.turn.players[newUUID].bet);
+		}
 	}
 	else{
 		document.getElementById("check-button").value = "Check";
 	}
 }
 function showNotMyTurn(uuid){
+	document.querySelector("html").classList.remove("self-turn");
 	if(uuid){
 		document.getElementById("status").innerHTML="Waiting for "+getPlayerName(uuid)+".";
 	}
-	document.getElementById("raise-button").disabled = "disabled";
-	document.getElementById("check-button").disabled = "disabled";
-	document.getElementById("fold-button").disabled = "disabled";
+	var all = document.getElementById("controls").querySelectorAll("button,input");
+	for(var i=0;i<all.length;i++){
+		all[i].disabled = "disabled";
+	}
 	document.getElementById("check-button").value = "Check";
-	document.getElementById("raise-value").disabled = "disabled";
-	document.getElementById("raise-range").disabled = "disabled";
 }
 window.loadGame = function(){
 var alreadyhere=false
@@ -931,30 +1115,39 @@ PN.whereNow({
     		});
 	}});
 	PN.hereNow({channels:[lobby]},function(status,response){
-		if(response.totalOccupancy==1){
-			game.hasConnected=true;
+		if(response.totalOccupancy>=8){
+			alert("This game is already full !");
+		}
+		else{
+			PN.subscribe({
+				channels: [lobby],
+				withPresence: true
+			});
 		}
 	});
     PN.addListener(listener);
-		PN.subscribe({
-			channels: [lobby],
-			withPresence: true
-		});
 }
 
-
-})();
-function load(){
+window.load= function(){
 	var hash = location.hash.substr(2);
+	var td = document.querySelectorAll('.table-table td[id^="player"]');
+	for(var i=0;i<td.length;i++){
+		var type = ["top","top","top","left","right","bottom","bottom","bottom"][i];
+		td[i].classList.add("cell-"+type);
+		td[i].innerHTML = '<div class="td-container"><span class="money-label">0</span><div class="player-cards"></div><div class="player-container"><span class="player-label"></span><span class="total-money"></span></div></div>'
+	}
 	if(!hash){
 		document.getElementById("create-game").style.display = "block";
 	}
 	else{
 		document.getElementById("create-game").style.display = "none";
 		document.getElementById("game-interface").style.display = "block";
+		log("Share this game : <ins>"+location.href+"</ins>",true);
 		loadGame();
 	}
+	window.onhashchange=function(){location.reload();}
 }
+})();
 function makeid(length) {
    var result           = '';
    var characters       = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
@@ -969,3 +1162,6 @@ function createGame(){
 	load();
 }
   
+function showRaise(){
+	var btn = document.getElement
+}
